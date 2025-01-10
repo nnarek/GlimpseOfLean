@@ -22,11 +22,11 @@ Let's prove some exercises using `linarith`.
 -/
 
 example (a b : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b) : 0 ≤ a + b := by {
-  sorry
+  linarith
 }
 
 example (a b c d : ℝ) (hab : a ≤ b) (hcd : c ≤ d) : a + c ≤ b + d := by {
-  sorry
+  linarith
 }
 
 /-
@@ -61,7 +61,13 @@ where `by linarith` will provide the proof of `δ/2 > 0` expected by Lean.
 /- If u is constant with value l then u tends to l.
 Hint: `simp` can rewrite `|l - l|` to `0` -/
 example (h : ∀ n, u n = l) : seq_limit u l := by {
-  sorry
+  unfold seq_limit
+  intro ε hε
+  use 1
+  intros
+  rw [h]
+  simp
+  linarith
 }
 
 
@@ -83,7 +89,13 @@ or the primed version:
 -- Assume `l > 0`. Then `u` ts to `l` implies `u n ≥ l/2` for large enough `n`
 example (h : seq_limit u l) (hl : l > 0) :
     ∃ N, ∀ n ≥ N, u n ≥ l/2 := by {
-  sorry
+  unfold seq_limit at *
+  rcases h (l / 2) (by linarith) with ⟨N,hN⟩
+  use N
+  intro n nN
+  specialize hN n nN
+  rw [abs_le] at *
+  linarith
 }
 
 
@@ -124,7 +136,21 @@ example (hu : seq_limit u l) (hv : seq_limit v l') :
 /- Let's do something similar: the squeezing theorem. -/
 example (hu : seq_limit u l) (hw : seq_limit w l) (h : ∀ n, u n ≤ v n) (h' : ∀ n, v n ≤ w n) :
     seq_limit v l := by {
-  sorry
+  unfold seq_limit at *
+  intro ε hε
+  rcases hu ε hε with ⟨uN,huN⟩
+  rcases hw ε hε with ⟨wN,hwN⟩
+  use max uN wN
+  intro n hn
+  rw [ge_max_iff] at hn
+  specialize huN n (by linarith)
+  specialize hwN n (by linarith)
+  rw [abs_le] at *
+  specialize h n
+  specialize h' n
+  apply And.intro
+  linarith
+  linarith
 }
 
 
@@ -139,7 +165,16 @@ Recall we listed three variations on the triangle inequality at the beginning of
 -- A sequence admits at most one limit. You will be able to use that lemma in the following
 -- exercises.
 lemma uniq_limit : seq_limit u l → seq_limit u l' → l = l' := by {
-  sorry
+  unfold seq_limit
+  intros h h'
+  apply eq_of_abs_sub_le_all
+  intro ε hε
+  rcases h (ε / 2) (by linarith) with ⟨N,hN⟩
+  rcases h' (ε / 2) (by linarith) with ⟨N',hN'⟩
+  specialize hN (max N N') (by apply le_max_left)
+  specialize hN' (max N N') (by apply le_max_right)
+  rw [abs_le] at *
+  apply And.intro (by linarith) (by linarith)
 }
 
 
@@ -154,7 +189,22 @@ def is_seq_sup (M : ℝ) (u : ℕ → ℝ) :=
 (∀ n, u n ≤ M) ∧ ∀ ε > 0, ∃ n₀, u n₀ ≥ M - ε
 
 example (M : ℝ) (h : is_seq_sup M u) (h' : non_decreasing u) : seq_limit u M := by {
-  sorry
+  unfold is_seq_sup at *
+  unfold non_decreasing at *
+
+  intro ε hε
+  rcases h.right ε hε with ⟨N,hN⟩
+  use N
+  intro n hn
+  rw [abs_le] at *
+  apply And.intro
+
+  specialize h' _ _ hn
+  linarith
+
+  rcases h with ⟨hl,_⟩
+  specialize hl n
+  linarith
 }
 
 /-
@@ -188,7 +238,22 @@ In the exercise, we use `∃ n ≥ N, ...` which is the abbreviation of
 /-- Extractions take arbitrarily large values for arbitrarily large
 inputs. -/
 lemma extraction_ge : extraction φ → ∀ N N', ∃ n ≥ N', φ n ≥ N := by {
-  sorry
+  unfold extraction
+
+  intro h N N'
+  use max N N' + 1
+  apply And.intro
+  apply le_trans
+  apply le_max_right N
+  linarith
+
+  apply le_trans
+  apply id_le_extraction' h
+
+  have aa : (N < max N N' + 1) := by apply Nat.lt_of_succ_le; apply Nat.succ_le_succ; apply le_max_left
+
+  specialize h N (max N N' + 1) aa
+  linarith
 }
 
 /- A real number `a` is a cluster point of a sequence `u`
@@ -202,19 +267,66 @@ if `u` has a subsequence converging to `a`.
 `u` arbitrarily close to `a` for arbitrarily large input. -/
 lemma near_cluster :
   cluster_point u a → ∀ ε > 0, ∀ N, ∃ n ≥ N, |u n - a| ≤ ε := by {
-  sorry
+  unfold cluster_point
+  unfold extraction
+  unfold seq_limit
+  unfold Function.comp
+
+  intro ⟨φ,⟨ex,hl⟩⟩ ε hε N
+  rcases hl ε hε with ⟨N',h⟩
+
+  rcases lt_or_le N N' with hn | hn
+
+  use φ N'
+  specialize h N' (by linarith)
+  apply And.intro
+  apply le_trans
+  apply id_le_extraction' ex
+  specialize ex N N' hn
+  linarith
+  exact h
+
+  use φ N
+  specialize h N (by assumption)
+  apply And.intro
+  apply id_le_extraction' ex
+  exact h
 }
 
 
 /-- If `u` tends to `l` then its subsequences tend to `l`. -/
 lemma subseq_tendsto_of_tendsto' (h : seq_limit u l) (hφ : extraction φ) :
 seq_limit (u ∘ φ) l := by {
-  sorry
+  unfold extraction at *
+  unfold seq_limit at *
+  unfold Function.comp
+
+  intro ε hε
+  rcases h ε hε with ⟨N,h⟩
+  use N
+  intro n hn
+  apply h (φ n)
+  apply le_trans
+  apply id_le_extraction' hφ
+  rcases Nat.lt_or_eq_of_le hn with Neqn | Nlen
+  apply hφ at Neqn
+  linarith
+  rw [Nlen]
 }
 
 /-- If `u` tends to `l` all its cluster points are equal to `l`. -/
 lemma cluster_limit (hl : seq_limit u l) (ha : cluster_point u a) : a = l := by {
-  sorry
+  apply near_cluster at ha
+  unfold seq_limit at *
+
+  apply eq_of_abs_sub_le_all
+  intro ε hε
+  rcases hl (ε / 2) (by linarith) with ⟨N,h⟩
+  specialize ha (ε / 2) (by linarith) N
+  cases' ha with n hn
+  specialize h n hn.left
+  rw [abs_le] at *
+  apply And.intro (by linarith) (by linarith)
 }
 
 /-- Cauchy_sequence sequence -/
@@ -222,7 +334,17 @@ def CauchySequence (u : ℕ → ℝ) :=
   ∀ ε > 0, ∃ N, ∀ p q, p ≥ N → q ≥ N → |u p - u q| ≤ ε
 
 example : (∃ l, seq_limit u l) → CauchySequence u := by {
-  sorry
+  unfold CauchySequence
+  unfold seq_limit
+  intros E ε hε
+  cases' E with e he
+  cases' he (ε / 2) (by linarith) with N hN
+  use N
+  intro p q hp hq
+  have hp' := hN p hp
+  have hq' := hN q hq
+  rw [abs_le] at *
+  apply And.intro (by linarith) (by linarith)
 }
 
 /-
@@ -231,5 +353,15 @@ In the next exercise, you can reuse
 -/
 
 example (hu : CauchySequence u) (hl : cluster_point u l) : seq_limit u l := by
-  sorry
+  unfold CauchySequence at *
+  unfold seq_limit at *
 
+  apply near_cluster at hl
+  intro ε hε
+  cases' hu (ε / 2) (by linarith) with N hN
+  cases' hl (ε / 2) (by linarith) N with n hn
+  use N
+  intro n' hn'
+  specialize hN n n' hn.left hn'
+  rw [abs_le] at *
+  apply And.intro (by linarith) (by linarith)
