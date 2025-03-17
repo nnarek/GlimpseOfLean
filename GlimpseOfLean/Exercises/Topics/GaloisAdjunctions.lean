@@ -32,12 +32,19 @@ def isInf (s : Set X) (x₀ : X) :=
   ∀ x, x ∈ lowerBounds s ↔ x ≤ x₀
 
 lemma isInf.lowerBound {s : Set X} {x₀ : X} (h : isInf s x₀) : x₀ ∈ lowerBounds s := by {
-  sorry
+  unfold isInf at *
+  apply (h x₀).2 le_rfl
 }
 
 /-- A set has at most one infimum. -/
 def isInf.eq {s : Set X} {x₀ x₁ : X} (hx₀ : isInf s x₀) (hx₁ : isInf s x₁) : x₀ = x₁ := by {
-  sorry
+  apply le_antisymm
+
+  apply (hx₁ x₀).1
+  apply hx₀.lowerBound
+
+  apply (hx₀ x₁).1
+  apply hx₁.lowerBound
 }
 
 /-- An element `x₀` is an supremum of a set `s` in `X` if every element
@@ -72,6 +79,7 @@ def isSupFun (S : Set X → X) :=
 infimum function then it automatically admits a supremum function. -/
 
 lemma isSup_of_isInf {I : Set X → X} (h : isInfFun I) : isSupFun (fun s ↦ I (upperBounds s)) := by {
+
   sorry
 }
 
@@ -519,4 +527,3 @@ lemma push_generate (f : G →* G') : push f ∘ generate = generate ∘ (Set.im
 
 end Subgroups
 end Tutorial
-
