@@ -65,18 +65,21 @@ variable {v : Variable → H} {A B : Formula}
 @[simp] lemma eval_neg : eval v ~A = (eval v A)ᶜ := by simp
 
 @[simp] lemma eval_top : eval v top = ⊤ := by {
-  sorry
+  simp
 }
 
 @[simp]
 lemma isTrue_equiv : eval v (A ⇔ B) = (eval v A ⇨ eval v B) ⊓ (eval v B ⇨ eval v A) := by {
-  sorry
+  simp
 }
 
 /- As an exercise, let's prove the following proposition, which holds in intuitionistic logic. -/
 
 example : Valid (~(A && ~A)) := by {
-  sorry
+  unfold Valid
+  unfold Models
+  intros H inst v c hb
+  simp
 }
 
 /- Let's define provability w.r.t. intuitionistic logic. -/
@@ -123,17 +126,54 @@ macro_rules
 ```
 -/
 example : Provable ((~A || ~B) ⇒ ~(A && B)) := by {
-  sorry
+  unfold Provable
+  unfold neg
+
+  apply impI
+  apply impI
+  apply orE
+  apply_ax
+  apply impE
+  apply_ax
+  apply andE1
+  apply_ax
+
+  apply impE
+  apply_ax
+  apply andE2
+  apply_ax
 }
 
 /- Optional exercise -/
 example : Provable (~(A && ~A)) := by {
-  sorry
+  unfold Provable
+  unfold neg
+
+  apply impI
+  apply impE
+  apply andE2
+  apply_ax
+  apply andE1
+  apply_ax
 }
 
 /- Optional exercise -/
 example : Provable ((~A && ~B) ⇒ ~(A || B)) := by {
-  sorry
+  unfold Provable
+  unfold neg
+
+  apply impI
+  apply impI
+  apply orE
+  apply_ax
+  apply impE
+  apply andE1
+  apply_ax
+  apply_ax
+  apply impE
+  apply andE2
+  apply_ax
+  apply_ax
 }
 
 /- You can prove the following using `induction` on `h`. You will want to tell Lean that you want
@@ -145,36 +185,72 @@ example : Provable ((~A && ~B) ⇒ ~(A || B)) := by {
   You will probably need to use the lemma
   `insert_subset_insert : s ⊆ t → insert x s ⊆ insert x t`. -/
 lemma weakening (h : Γ ⊢ A) (h2 : Γ ⊆ Δ) : Δ ⊢ A := by {
-  sorry
+  induction h generalizing Δ
+  case ax ih => apply ax; apply h2 ih
+  case impI ih => apply impI; apply ih; apply insert_subset_insert h2
+  case impE ih1 ih2 => apply impE (ih1 h2) (ih2 h2)
+  case andI ih1 ih2 => apply andI (ih1 h2) (ih2 h2)
+  case andE1 ih => apply andE1; apply ih h2
+  case andE2 ih => apply andE2; apply ih h2
+  case orI1 ih => apply orI1; apply ih h2
+  case orI2 ih => apply orI2; apply ih h2
+  case orE ih1 ih2 ih3 => apply orE; apply ih1 h2; apply ih2; apply insert_subset_insert h2; apply ih3; apply insert_subset_insert h2
+  case botE ih => apply botE; apply ih h2
 }
 
 /- Use the `apply?` tactic to find the lemma that states `Γ ⊆ insert x Γ`.
   You can click the blue suggestion in the right panel to automatically apply the suggestion. -/
 
 lemma ProvableFrom.insert (h : Γ ⊢ A) : insert B Γ ⊢ A := by {
-  sorry
+  apply weakening (by assumption)
+  exact subset_insert B Γ
 }
 
 /- Proving the deduction theorem is now easy. -/
 lemma deduction_theorem (h : Γ ⊢ A) : insert (A ⇒ B) Γ ⊢ B := by {
-  sorry
+  apply impE
+  apply_ax
+  apply h.insert
 }
 
 lemma Provable.mp (h1 : Provable (A ⇒ B)) (h2 : Γ ⊢ A) : Γ ⊢ B := by {
-  sorry
+  unfold Provable at *
+  apply impE
+  apply weakening
+  assumption
+  simp
+  assumption
 }
 
 /- This is tricky, since you need to compute using operations in a Heyting algebra. -/
 set_option maxHeartbeats 0 in
 theorem soundness_theorem (h : Γ ⊢ A) : Γ ⊨ A := by {
-  sorry
+  unfold Models
+  -- ⊓ is same as min and ⊔ is max
+  induction h <;> intros H inst v c hv;
+  case ax hi => apply hv; assumption
+  case impI hi => simp; apply hi; simp; intro a ha; exact inf_le_of_left_le (hv a ha);
+  case impE h1 h2 => simp at *; specialize h1 hv; specialize h2 hv; apply le_trans; apply le_inf; apply le_refl; apply h2; apply h1
+  case andI ih1 ih2 => simp at *; apply And.intro; apply ih1 hv; apply ih2 hv
+  case andE1 ih => simp at *; apply (ih hv).1
+  case andE2 ih => simp at *; apply (ih hv).2
+  case orI1 ih => simp at *; apply le_trans; apply ih hv; apply le_sup_left
+  case orI2 ih => simp at *; apply le_trans; apply ih hv; apply le_sup_right
+  case orE ih1 ih2 ih3 => simp at *; specialize ih1 hv; /-first tried to use "cases' le_sup_iff.mp ih1;" but Heyting algebra does not satisfy to its requirements. then tried to apply le_total but also failed due to same reason-/ sorry
+  case botE ih => simp at *; specialize ih hv; rw [ih]; apply bot_le
+
 }
 
 theorem valid_of_provable (h : Provable A) : Valid A := by {
-  sorry
+  unfold Provable at *
+  unfold Valid at *
+  apply soundness_theorem
+  assumption
 }
 
 /-
+  TODO finish these two exercises
+
   If you want, you can now try some these longer projects.
 
   1. Define Kripke semantics and prove soundness w.r.t. Kripke semantics.
@@ -184,4 +260,3 @@ theorem valid_of_provable (h : Provable A) : Valid A := by {
 -/
 
 end IntuitionisticPropositionalLogic
-
