@@ -36,7 +36,7 @@ local infix:29 (priority := high) " ⇔ " => equiv
 
 /- Let's define truth w.r.t. a valuation, i.e. classical validity -/
 
-@[simp]
+@[simp] --TODO mention in the doc that function also can be declated with simp
 def IsTrue (v : Variable → Prop) : Formula → Prop
   | ⊥      => False
   | # P    => v P
@@ -58,22 +58,31 @@ variable {v : Variable → Prop} {A B : Formula}
 @[simp] lemma isTrue_neg : IsTrue v ~A ↔ ¬ IsTrue v A := by simp
 
 @[simp] lemma isTrue_top : IsTrue v ⊤ := by {
-  sorry
+  simp
 }
 
 @[simp] lemma isTrue_equiv : IsTrue v (A ⇔ B) ↔ (IsTrue v A ↔ IsTrue v B) := by {
-  sorry
+  simp
+  tauto
 }
 
 /- As an exercise, let's prove (using classical logic) the double negation elimination principle.
   `by_contra h` might be useful to prove something by contradiction. -/
 
 example : Valid (~~A ⇔ A) := by {
-  sorry
+  unfold Valid
+  unfold Models
+  intro v h
+  simp
 }
 
+example (h : p ∨ q) : q ∨ p := by
+  cases h
+  case inl hp => exact Or.inr hp
+  case inr hq => exact Or.inl hq
+
 @[simp] lemma satisfies_insert_iff : Satisfies v (insert A Γ) ↔ IsTrue v A ∧ Satisfies v Γ := by {
-  simp [Satisfies]
+  simp [Satisfies] --TODO what is it mean
 }
 
 /- Let's define provability w.r.t. classical logic. -/
@@ -131,19 +140,90 @@ example : insert A (insert B ∅) ⊢ A && B := by
   exact andI (by apply_ax) (by apply_ax)
 
 example : Provable (~~A ⇔ A) := by {
-  sorry
+  unfold Provable
+  unfold equiv
+  unfold neg
+  apply andI
+
+
+  apply impI
+  apply botC
+  apply @impE _ (A ⇒ ⊥) --TODO how to use "apply with" of coq here?
+  apply_ax
+  apply_ax
+
+
+  apply impI
+  apply impI
+  apply impE
+  apply_ax
+  apply_ax
 }
 
 /- Optional exercise: prove the law of excluded middle. -/
 example : Provable (A || ~A) := by {
-  sorry
+  unfold Provable
+  unfold neg
+
+  --botC is same as ~~A = A
+
+  apply botC
+  apply impE
+  apply_ax
+  apply orI2
+  apply impI
+  apply impE
+  apply_ax
+  apply orI1
+  apply_ax
 }
 
 /- Optional exercise: prove one of the de-Morgan laws.
   If you want to say that the argument called `A` of the axiom `impE` should be `X && Y`,
   you can do this using `impE (A := X && Y)` -/
 example : Provable (~(A && B) ⇔ ~A || ~B) := by {
-  sorry
+  unfold Provable
+  unfold equiv
+  unfold neg
+
+
+  apply andI
+  apply impI
+  apply botC
+  apply impE
+  apply ax
+  apply mem_insert_of_mem
+  apply mem_insert
+  apply andI
+
+  apply botC
+  apply impE
+  apply ax
+  apply mem_insert_of_mem
+  apply mem_insert
+  apply orI1
+  apply_ax
+
+  apply botC
+  apply impE
+  apply ax
+  apply mem_insert_of_mem
+  apply mem_insert
+  apply orI2
+  apply_ax
+
+  apply impI
+  apply impI
+  apply orE
+  apply_ax
+  apply impE
+  apply_ax
+  apply andE1
+  apply_ax
+  apply impE
+  apply_ax
+  apply andE2
+  apply_ax
 }
 
 /- You can prove the following using `induction` on `h`. You will want to tell Lean that you want
@@ -155,36 +235,116 @@ example : Provable (~(A && B) ⇔ ~A || ~B) := by {
   You will probably need to use the lemma
   `insert_subset_insert : s ⊆ t → insert x s ⊆ insert x t`. -/
 lemma weakening (h : Γ ⊢ A) (h2 : Γ ⊆ Δ) : Δ ⊢ A := by {
-  sorry
+  induction h generalizing Δ
+
+  apply ax
+  apply h2 (by assumption)
+
+  apply impI
+  apply insert_subset_insert at h2
+  rename_i h
+  apply h h2
+
+  apply impE
+  rename_i h _
+  apply h (by assumption)
+  rename_i h
+  apply h (by assumption)
+
+  apply andI
+  rename_i h _
+  apply h (by assumption)
+  rename_i h
+  apply h (by assumption)
+
+  apply andE1
+  rename_i h
+  apply h h2
+
+  apply andE2
+  rename_i h
+  apply h h2
+
+  apply orI1
+  rename_i h
+  apply h (by assumption)
+
+  apply orI2
+  rename_i h
+  apply h (by assumption)
+
+  apply orE
+  rename_i h _ _
+  apply h (by assumption)
+  rename_i h _
+  apply h
+  apply insert_subset_insert (by assumption)
+  rename_i h
+  apply h
+  apply insert_subset_insert (by assumption)
+
+  apply botC
+  rename_i h
+  apply h
+  apply insert_subset_insert (by assumption)
 }
 
 /- Use the `apply?` tactic to find the lemma that states `Γ ⊆ insert x Γ`.
   You can click the blue suggestion in the right panel to automatically apply the suggestion. -/
 
 lemma ProvableFrom.insert (h : Γ ⊢ A) : insert B Γ ⊢ A := by {
-  sorry
+  apply weakening (by assumption)
+  exact subset_insert B Γ
 }
 
 /- Proving the deduction theorem is now easy. -/
 lemma deduction_theorem (h : Γ ⊢ A) : insert (A ⇒ B) Γ ⊢ B := by {
-  sorry
+   apply impE
+   apply_ax
+   apply h.insert --same as "apply ProvableFrom.insert h"
+   --TODO add into notes
 }
 
 lemma Provable.mp (h1 : Provable (A ⇒ B)) (h2 : Γ ⊢ A) : Γ ⊢ B := by {
-  sorry
+  unfold Provable at *
+  apply impE
+  apply impI
+  apply deduction_theorem
+  apply h2
+  apply weakening
+  apply h1
+  exact empty_subset _
 }
 
 /-- You will want to use the tactics `left` and `right` to prove a disjunction, and the
   tactic `cases h` if `h` is a disjunction to do a case distinction. -/
 theorem soundness_theorem (h : Γ ⊢ A) : Γ ⊨ A := by {
-  sorry
+  unfold Models
+  unfold Satisfies
+  intros v hv
+  induction h
+  case ax ih => apply hv; assumption
+  case impI ih => intro ht; apply ih; intro a aΓ; cases' eq_or_mem_of_mem_insert aΓ with ha aΓ; rw [ha]; assumption; apply hv aΓ
+  case impE ih1 ih2 => apply ih1 hv; apply ih2 hv
+  case andI ih1 ih2 => apply And.intro; apply ih1 hv; apply ih2 hv
+  case andE1 ih => cases ih hv; assumption
+  case andE2 ih => cases ih hv; assumption
+  case orI1 ih => apply Or.inl; apply ih hv
+  case orI2 ih => apply Or.inr; apply ih hv
+  case orE ih1 ih2 ih3 => cases' ih1 hv with ha hb; apply ih2; intro a aΓ; cases' eq_or_mem_of_mem_insert aΓ with ha aΓ; rw [ha]; assumption; apply hv aΓ; apply ih3; intro a aΓ; cases' eq_or_mem_of_mem_insert aΓ with ha aΓ; rw [ha]; assumption; apply hv aΓ;
+  case botC ih => dsimp at *; by_contra; apply ih; intro a aΓ; cases' eq_or_mem_of_mem_insert aΓ with ha aΓ; rw [ha]; dsimp; assumption; apply hv aΓ
 }
 
 theorem valid_of_provable (h : Provable A) : Valid A := by {
-  sorry
+  unfold Provable at *
+  unfold Valid at *
+  apply soundness_theorem
+  assumption
 }
 
 /-
+  TODO finish these two exercises
+
   If you want, you can now try some these longer projects.
 
   1. Prove completeness: if a formula is valid, then it is provable
@@ -202,4 +362,3 @@ theorem valid_of_provable (h : Provable A) : Valid A := by {
 -/
 
 end ClassicalPropositionalLogic
-
